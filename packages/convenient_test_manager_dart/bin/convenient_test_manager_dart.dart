@@ -140,8 +140,7 @@ int _calcExitCode() {
     successCount: stateCountMap[SimplifiedStateEnum.completeSuccess],
     flakyCount: stateCountMap[SimplifiedStateEnum.completeSuccessButFlaky],
     skippedCount: stateCountMap[SimplifiedStateEnum.completeSkipped],
-    failureCount:
-        stateCountMap[SimplifiedStateEnum.completeFailureOrError],
+    failureCount: stateCountMap[SimplifiedStateEnum.completeFailureOrError],
     runOnly: GlobalConfigStore.config.runOnly,
   );
   Log.d(_kTag, 'calcExitCode=$ans');

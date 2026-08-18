@@ -72,32 +72,18 @@ void main() {
     );
 
     test('accepts unselected pending tests after a run-only success', () {
-      expect(
-        calculate(
-          pending: 6,
-          success: 1,
-          runOnly: 'selected test',
-        ),
-        0,
-      );
+      expect(calculate(pending: 6, success: 1, runOnly: 'selected test'), 0);
     });
 
     test('reports a selected run-only failure', () {
       expect(
-        calculate(
-          pending: 6,
-          failure: 1,
-          runOnly: 'selected test',
-        ),
+        calculate(pending: 6, failure: 1, runOnly: 'selected test'),
         kExitCodeFinishExecutionButHasFailure,
       );
     });
 
     test('rejects pending tests for an unfiltered run', () {
-      expect(
-        () => calculate(pending: 1, success: 1),
-        throwsStateError,
-      );
+      expect(() => calculate(pending: 1, success: 1), throwsStateError);
     });
 
     test('rejects a run-only filter that completed no test', () {
