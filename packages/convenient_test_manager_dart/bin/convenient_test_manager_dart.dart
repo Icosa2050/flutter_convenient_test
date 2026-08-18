@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:convenient_test_common_dart/convenient_test_common_dart.dart';
 import 'package:convenient_test_manager_dart/misc/setup.dart';
+import 'package:convenient_test_manager_dart/services/headless_exit_code_service.dart';
 import 'package:convenient_test_manager_dart/services/headless_startup_service.dart';
 import 'package:convenient_test_manager_dart/services/misc_dart_service.dart';
 import 'package:convenient_test_manager_dart/services/status_periodic_logger.dart';
@@ -15,7 +16,6 @@ import 'package:mobx/mobx.dart';
 
 const _kTag = 'main';
 
-const kExitCodeFinishExecutionButHasFailure = 1;
 const kExitCodeWorkerDisappeared = 2;
 
 Future<void> main(List<String> args) async {
@@ -124,8 +124,6 @@ int _calcExitCode() {
     suiteInfoStore.suiteInfo!.rootGroup,
   );
 
-  if (stateCountMap[SimplifiedStateEnum.pending] > 0) throw AssertionError;
-
   if (stateCountMap[SimplifiedStateEnum.completeSuccessButFlaky] > 0) {
     Log.w(_kTag, 'See flaky tests.');
   }
@@ -136,7 +134,16 @@ int _calcExitCode() {
     Log.w(_kTag, 'See failed tests.');
   }
 
-  final ans = hasFailure ? kExitCodeFinishExecutionButHasFailure : 0;
+  final ans = calculateHeadlessExitCode(
+    pendingCount: stateCountMap[SimplifiedStateEnum.pending],
+    runningCount: stateCountMap[SimplifiedStateEnum.running],
+    successCount: stateCountMap[SimplifiedStateEnum.completeSuccess],
+    flakyCount: stateCountMap[SimplifiedStateEnum.completeSuccessButFlaky],
+    skippedCount: stateCountMap[SimplifiedStateEnum.completeSkipped],
+    failureCount:
+        stateCountMap[SimplifiedStateEnum.completeFailureOrError],
+    runOnly: GlobalConfigStore.config.runOnly,
+  );
   Log.d(_kTag, 'calcExitCode=$ans');
   return ans;
 }
