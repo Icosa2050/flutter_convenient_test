@@ -1,0 +1,35 @@
+name: launcher_fixture
+description: Disposable native launcher smoke fixture.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.9.0 <4.0.0'
+  flutter: '>=3.35.0'
+
+dependencies:
+  convenient_test:
+    path: ../../packages/convenient_test
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  convenient_test_dev:
+    path: ../../packages/convenient_test_dev
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+
+dependency_overrides:
+  convenient_test:
+    path: ../../packages/convenient_test
+  convenient_test_common:
+    path: ../../packages/convenient_test_common
+  convenient_test_common_dart:
+    path: ../../packages/convenient_test_common_dart
+  convenient_test_dev:
+    path: ../../packages/convenient_test_dev
+
+flutter:
+  uses-material-design: true

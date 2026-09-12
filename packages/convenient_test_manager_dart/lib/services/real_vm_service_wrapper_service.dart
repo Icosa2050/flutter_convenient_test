@@ -16,28 +16,91 @@ class RealVmServiceWrapperService extends VmServiceWrapperService {
   static const _kTag = 'RealVmServiceWrapperService';
 
   final _manager = ServiceConnectionManager();
+  final Future<VmService> Function(String uri) _vmServiceConnector;
+  final Duration _connectionTimeout;
+  int _requestedConnectionGeneration = 0;
 
-  RealVmServiceWrapperService() {
-    connect();
+  RealVmServiceWrapperService({
+    bool autoConnect = true,
+    Future<VmService> Function(String uri)? vmServiceConnector,
+    Duration connectionTimeout = const Duration(seconds: 10),
+  }) : _vmServiceConnector =
+           vmServiceConnector ?? RealVmServiceWrapperService._connectVmService,
+       _connectionTimeout = connectionTimeout,
+       assert(connectionTimeout > Duration.zero) {
+    if (autoConnect) unawaited(connect());
   }
+
+  static Future<VmService> _connectVmService(String uri) =>
+      vmServiceConnectUri(uri, log: _MyLog());
 
   @override
   bool get connected => _manager.connected;
 
   @override
-  Future<void> connect() async {
-    const uri = 'ws://$kWorkerVmServiceHost:$kWorkerVmServicePort/ws';
+  Future<void> connect({Uri? uri}) async {
+    final generation = ++_requestedConnectionGeneration;
+    final endpoint =
+        uri ??
+        Uri(
+          scheme: 'ws',
+          host: kWorkerVmServiceHost,
+          port: kWorkerVmServicePort,
+          path: '/ws',
+        );
     Log.i(
       _kTag,
-      'Connecting to vm service at $uri. Please ensure your Flutter app has port=$kWorkerVmServicePort',
+      'Connecting to vm service at $endpoint. '
+      'Please ensure your Flutter app uses this endpoint.',
     );
 
+    await _manager.disconnect();
+    if (generation != _requestedConnectionGeneration) return;
+
+    VmService? vmService;
     try {
-      final vmService = await vmServiceConnectUri(uri, log: _MyLog());
+      vmService = await _connectWithTimeout(endpoint);
+      if (generation != _requestedConnectionGeneration) {
+        await vmService.dispose();
+        return;
+      }
+
       await _manager.vmServiceOpened(vmService);
+      if (generation != _requestedConnectionGeneration) {
+        await vmService.dispose();
+      }
     } catch (e, s) {
+      if (generation == _requestedConnectionGeneration) {
+        await _manager.disconnect();
+      } else {
+        await vmService?.dispose();
+      }
       Log.w(_kTag, 'init failed e=$e s=$s');
     }
+  }
+
+  Future<VmService> _connectWithTimeout(Uri endpoint) async {
+    final pendingClient = _vmServiceConnector(endpoint.toString());
+    try {
+      return await pendingClient.timeout(_connectionTimeout);
+    } on TimeoutException {
+      unawaited(
+        pendingClient.then<void>((lateClient) async {
+          try {
+            await lateClient.dispose();
+          } catch (e, s) {
+            Log.w(_kTag, 'late client disposal failed e=$e s=$s');
+          }
+        }, onError: (Object _, StackTrace _) {}),
+      );
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> disconnect() async {
+    _requestedConnectionGeneration++;
+    await _manager.disconnect();
   }
 
   @override
@@ -98,6 +161,10 @@ abstract class _ServiceConnectionManager with Store {
   VmService? service;
 
   VM? vm;
+  int _connectionGeneration = 0;
+  // Retained and cancelled by [_detachCurrentService].
+  // ignore: cancel_subscriptions
+  StreamSubscription<Event>? _serviceEventSubscription;
 
   @computed
   bool get connected => service != null;
@@ -139,14 +206,22 @@ abstract class _ServiceConnectionManager with Store {
     );
   }
 
-  Future<void> vmServiceOpened(VmService service) async {
+  Future<void> vmServiceOpened(VmService newService) async {
     Log.i(_kTag, 'vmServiceOpened');
 
-    this.service = service;
+    final generation = ++_connectionGeneration;
+    await _detachCurrentService();
+    if (generation != _connectionGeneration) {
+      await newService.dispose();
+      return;
+    }
 
-    isolateManager.vmServiceOpened(service);
+    service = newService;
+
+    isolateManager.vmServiceOpened(newService);
 
     void handleServiceEvent(Event e) {
+      if (!_isCurrent(newService, generation)) return;
       Log.i(
         _kTag,
         'handleServiceEvent kind=${e.kind} service=${e.service} method=${e.method}',
@@ -162,25 +237,66 @@ abstract class _ServiceConnectionManager with Store {
       }
     }
 
-    service.onEvent(EventStreams.kService).listen(handleServiceEvent);
-    unawaited(service.streamListen(EventStreams.kService));
+    _serviceEventSubscription = newService
+        .onEvent(EventStreams.kService)
+        .listen(handleServiceEvent);
 
     unawaited(
-      service.onDone.then((Object? _) {
-        Log.i(_kTag, 'VMService.onDone called');
-        this.service = null;
-      }),
+      newService.onDone.then(
+        (Object? _) => _handleVmServiceDone(newService, generation),
+      ),
     );
 
-    vm = await service.getVM();
+    try {
+      await newService.streamListen(EventStreams.kService);
+      if (!_isCurrent(newService, generation)) return;
 
-    final isolates = <IsolateRef>[...vm?.isolates ?? []];
+      final currentVm = await newService.getVM();
+      if (!_isCurrent(newService, generation)) return;
+      vm = currentVm;
 
-    await isolateManager.init(isolates);
-    if (service != this.service) {
-      // A different service has been opened.
-      return;
+      final isolates = <IsolateRef>[...currentVm.isolates ?? []];
+
+      await isolateManager.init(isolates);
+    } catch (_) {
+      if (_isCurrent(newService, generation)) {
+        _connectionGeneration++;
+        await _detachCurrentService();
+      }
+      rethrow;
     }
+  }
+
+  Future<void> disconnect() async {
+    _connectionGeneration++;
+    await _detachCurrentService();
+  }
+
+  bool _isCurrent(VmService candidate, int generation) =>
+      generation == _connectionGeneration && identical(service, candidate);
+
+  Future<void> _handleVmServiceDone(
+    VmService closedService,
+    int generation,
+  ) async {
+    if (!_isCurrent(closedService, generation)) return;
+
+    Log.i(_kTag, 'VMService.onDone called');
+    _connectionGeneration++;
+    await _detachCurrentService(disposeService: false);
+  }
+
+  Future<void> _detachCurrentService({bool disposeService = true}) async {
+    final oldService = service;
+    service = null;
+    vm = null;
+    _registeredMethodsForService.clear();
+    isolateManager.handleVmServiceClosed();
+
+    final serviceEventSubscription = _serviceEventSubscription;
+    _serviceEventSubscription = null;
+    await serviceEventSubscription?.cancel();
+    if (disposeService) await oldService?.dispose();
   }
 }
 
@@ -232,7 +348,9 @@ class IsolateManager extends Disposer {
     //   }
     //   await _initIsolates(isolates);
     // });
-    await _initIsolates(isolates);
+    final service = _service;
+    if (service == null) return;
+    await _initIsolates(isolates, service);
   }
 
   IsolateState? get mainIsolateDebuggerState {
@@ -257,12 +375,18 @@ class IsolateManager extends Disposer {
     _setSelectedIsolate(isolateRef);
   }
 
-  Future<void> _initIsolates(List<IsolateRef> isolates) async {
+  Future<void> _initIsolates(
+    List<IsolateRef> isolates,
+    VmService sourceService,
+  ) async {
+    if (sourceService != _service) return;
     _clearIsolateStates();
 
     await Future.wait([
-      for (final isolateRef in isolates) _registerIsolate(isolateRef),
+      for (final isolateRef in isolates)
+        _registerIsolate(isolateRef, sourceService),
     ]);
+    if (sourceService != _service) return;
 
     // It is critical that the _serviceExtensionManager is already listening
     // for events indicating that new extension rpcs are registered before this
@@ -270,20 +394,27 @@ class IsolateManager extends Disposer {
     // described in the selectedIsolate or recieved as an event. It is ok if a
     // service extension is included in both places as duplicate extensions are
     // handled gracefully.
-    await _initSelectedIsolate();
+    await _initSelectedIsolate(sourceService);
   }
 
-  Future<void> _registerIsolate(IsolateRef isolateRef) async {
+  Future<void> _registerIsolate(
+    IsolateRef isolateRef,
+    VmService sourceService,
+  ) async {
+    if (sourceService != _service) return;
     assert(!_isolateStates.containsKey(isolateRef));
     _isolateStates[isolateRef] = IsolateState(isolateRef);
     _isolates.add(isolateRef);
     isolateIndex(isolateRef);
-    await _loadIsolateState(isolateRef);
+    await _loadIsolateState(isolateRef, sourceService);
   }
 
-  Future<void> _loadIsolateState(IsolateRef isolateRef) async {
-    final service = _service;
-    var isolate = await _service!.getIsolate(isolateRef.id!);
+  Future<void> _loadIsolateState(
+    IsolateRef isolateRef,
+    VmService sourceService,
+  ) async {
+    var isolate = await sourceService.getIsolate(isolateRef.id!);
+    if (sourceService != _service) return;
     if (isolate.runnable == false) {
       final isolateRunnableCompleter = _isolateRunnableCompleters.putIfAbsent(
         isolate.id,
@@ -291,10 +422,11 @@ class IsolateManager extends Disposer {
       );
       if (!isolateRunnableCompleter.isCompleted) {
         await isolateRunnableCompleter.future;
-        isolate = await _service!.getIsolate(isolate.id!);
+        if (sourceService != _service) return;
+        isolate = await sourceService.getIsolate(isolate.id!);
       }
     }
-    if (service != _service) return;
+    if (sourceService != _service) return;
     final state = _isolateStates[isolateRef];
     if (state != null) {
       // Isolate might have already been closed.
@@ -302,7 +434,8 @@ class IsolateManager extends Disposer {
     }
   }
 
-  Future<void> _handleIsolateEvent(Event event) async {
+  Future<void> _handleIsolateEvent(Event event, VmService sourceService) async {
+    if (sourceService != _service) return;
     _sendToMessageBus(event);
     if (event.kind == EventKind.kIsolateRunnable) {
       final isolateRunnable = _isolateRunnableCompleters.putIfAbsent(
@@ -312,7 +445,8 @@ class IsolateManager extends Disposer {
       isolateRunnable.complete();
     } else if (event.kind == EventKind.kIsolateStart &&
         !event.isolate!.isSystemIsolate!) {
-      await _registerIsolate(event.isolate!);
+      await _registerIsolate(event.isolate!, sourceService);
+      if (sourceService != _service) return;
       _isolateCreatedController.add(event.isolate);
       // TODO(jacobr): we assume the first isolate started is the main isolate
       // but that may not always be a safe assumption.
@@ -353,26 +487,25 @@ class IsolateManager extends Disposer {
     // );
   }
 
-  Future<void> _initSelectedIsolate() async {
+  Future<void> _initSelectedIsolate(VmService sourceService) async {
+    if (sourceService != _service) return;
     if (_isolateStates.isEmpty) {
       return;
     }
     _mainIsolate.value = null;
-    final service = _service;
-    final mainIsolate = await _computeMainIsolate();
-    if (service != _service) return;
+    final mainIsolate = await _computeMainIsolate(sourceService);
+    if (sourceService != _service) return;
     _mainIsolate.value = mainIsolate;
     _setSelectedIsolate(_mainIsolate.value);
   }
 
-  Future<IsolateRef?> _computeMainIsolate() async {
+  Future<IsolateRef?> _computeMainIsolate(VmService sourceService) async {
     if (_isolateStates.isEmpty) return null;
 
-    final service = _service;
     for (var isolateState in _isolateStates.values) {
       if (_selectedIsolate.value == null) {
         final isolate = await isolateState.isolate;
-        if (service != _service) return null;
+        if (sourceService != _service) return null;
         for (String extensionName in isolate?.extensionRPCs ?? []) {
           if (isFlutterExtension(extensionName)) {
             return isolateState.isolateRef;
@@ -404,6 +537,9 @@ class IsolateManager extends Disposer {
     _isolateIndexMap.clear();
     _clearIsolateStates();
     _mainIsolate.value = null;
+    for (final completer in _isolateRunnableCompleters.values) {
+      if (!completer.isCompleted) completer.complete();
+    }
     _isolateRunnableCompleters.clear();
   }
 
@@ -423,10 +559,12 @@ class IsolateManager extends Disposer {
     cancelStreamSubscriptions();
     _service = service;
     autoDisposeStreamSubscription(
-      service.onIsolateEvent.listen(_handleIsolateEvent),
+      service.onIsolateEvent.listen(
+        (event) => _handleIsolateEvent(event, service),
+      ),
     );
     autoDisposeStreamSubscription(
-      service.onDebugEvent.listen(_handleDebugEvent),
+      service.onDebugEvent.listen((event) => _handleDebugEvent(event, service)),
     );
 
     // We don't yet known the main isolate.
@@ -441,7 +579,8 @@ class IsolateManager extends Disposer {
     return isolateState.isolate;
   }
 
-  void _handleDebugEvent(Event event) {
+  void _handleDebugEvent(Event event, VmService sourceService) {
+    if (sourceService != _service) return;
     final isolate = event.isolate;
     if (isolate == null) return;
     final isolateState = _isolateStates[isolate];

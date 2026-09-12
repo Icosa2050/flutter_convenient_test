@@ -15,6 +15,9 @@ import 'fake_vm_service_wrapper.dart';
 Future<void> setupForTesting() async {
   await setup(
     registerVmServiceWrapper: false,
+    startManagerServer: false,
+    autoConnectVm: false,
+    initializeLauncher: false,
     initVLC: false,
     parseConfigFile: false,
   );
@@ -49,7 +52,9 @@ void headerBar({required ThemeMode theme, required Size size}) =>
       await tester.pumpWidget(
         MyApp(
           themeMode: theme,
-          builder: (context, _) => const Scaffold(body: HomePageHeaderPanel()),
+          builder: (context, _) => Scaffold(
+            body: HomePageHeaderPanel(onReconnect: () {}, onLoadReport: () {}),
+          ),
         ),
       );
 

@@ -1,0 +1,206 @@
+{
+  "@@locale": "en",
+  "launcherTitle": "Worker launcher",
+  "launcherProjectLabel": "Flutter project",
+  "launcherProjectChoose": "Choose project",
+  "launcherProjectRequired": "Choose a Flutter project to continue.",
+  "launcherEntrypointLabel": "Test entrypoint",
+  "launcherEntrypointSelect": "Select test",
+  "launcherEntrypointRequired": "Select a test entrypoint to continue.",
+  "launcherDeviceLabel": "Device",
+  "launcherDeviceSelect": "Select device",
+  "launcherRefreshDevices": "Refresh devices",
+  "launcherDeviceRequired": "Select a device to continue.",
+  "launcherSdkLabel": "Flutter SDK",
+  "launcherSdkChoose": "Choose Flutter SDK",
+  "launcherSdkRequired": "Choose a Flutter SDK to continue.",
+  "launcherAdvancedSettings": "SDK and Dart defines",
+  "launcherDartDefinesLabel": "Dart defines",
+  "launcherDartDefinesHint": "One KEY=VALUE definition per line",
+  "launcherStart": "Start",
+  "launcherReconnect": "Reconnect VM",
+  "launcherLoadReport": "Load Report",
+  "launcherLoadingReport": "Loading report…",
+  "launcherStop": "Stop",
+  "launcherDisconnect": "Disconnect",
+  "launcherRetry": "Retry",
+  "launcherConnectExisting": "Connect to existing worker",
+  "launcherLogs": "Build and worker logs",
+  "launcherShowLogs": "Show logs",
+  "launcherHideLogs": "Hide logs",
+  "launcherRestoringSelections": "Restoring saved selections…",
+  "launcherSavingSelections": "Saving selections…",
+  "launcherStarting": "Starting worker…",
+  "launcherConnecting": "Connecting to worker…",
+  "launcherStopping": "Stopping worker…",
+  "launcherRunning": "Worker running",
+  "launcherIdle": "No worker running",
+  "launcherNoTestsFound": "No integration tests were found in {path}.",
+  "@launcherNoTestsFound": {
+    "description": "Shown when project discovery finds no integration-test entrypoints.",
+    "placeholders": {
+      "path": {"type": "String"}
+    }
+  },
+  "launcherNoDevicesFound": "No devices were reported by {path}.",
+  "@launcherNoDevicesFound": {
+    "description": "Shown when the selected Flutter executable reports no devices.",
+    "placeholders": {
+      "path": {"type": "String"}
+    }
+  },
+  "launcherInvalidProject": "The selected project is invalid: {path}",
+  "@launcherInvalidProject": {
+    "description": "Shown when the selected project path is unusable or lacks a pubspec.",
+    "placeholders": {
+      "path": {"type": "String"}
+    }
+  },
+  "launcherInvalidEntrypoint": "The selected test is outside the project or no longer exists: {path}",
+  "@launcherInvalidEntrypoint": {
+    "description": "Shown when the selected integration-test entrypoint is invalid.",
+    "placeholders": {
+      "path": {"type": "String"}
+    }
+  },
+  "launcherEntrypointUnavailable": "Test entrypoint {filename} is no longer available.",
+  "@launcherEntrypointUnavailable": {
+    "description": "Shown when a previously discovered test entrypoint disappears.",
+    "placeholders": {
+      "filename": {"type": "String"}
+    }
+  },
+  "launcherInvalidSdk": "The Flutter executable is invalid or unavailable: {path}",
+  "@launcherInvalidSdk": {
+    "description": "Shown when the selected Flutter executable cannot be used.",
+    "placeholders": {
+      "path": {"type": "String"}
+    }
+  },
+  "launcherReservedDefine": "Dart define {key} is managed by the launcher and cannot be overridden.",
+  "@launcherReservedDefine": {
+    "description": "Shown when a user tries to override a connection define reserved by the launcher.",
+    "placeholders": {
+      "key": {"type": "String"}
+    }
+  },
+  "launcherSelectionCancelled": "Selection cancelled.",
+  "launcherPickerFailure": "Could not open the file picker. Check macOS file access permissions and try again.",
+  "launcherRestoreFailure": "Saved selections could not be restored: {details}",
+  "@launcherRestoreFailure": {
+    "description": "Shown when persisted launcher settings cannot be read.",
+    "placeholders": {
+      "details": {"type": "String"}
+    }
+  },
+  "launcherSaveFailure": "Selections could not be saved: {details}",
+  "@launcherSaveFailure": {
+    "description": "Shown when launcher settings cannot be persisted.",
+    "placeholders": {
+      "details": {"type": "String"}
+    }
+  },
+  "launcherReportLoadFailure": "The selected report could not be loaded: {details}",
+  "@launcherReportLoadFailure": {
+    "description": "Shown when the selected saved report cannot be opened or read.",
+    "placeholders": {
+      "details": {"type": "String"}
+    }
+  },
+  "launcherPortConflict": "Port {port} is already in use.",
+  "@launcherPortConflict": {
+    "description": "Shown when the requested manager port cannot be bound.",
+    "placeholders": {
+      "port": {"type": "int"}
+    }
+  },
+  "launcherSharedResourceWarning": "Concurrent workers can still share a checkout, device, app data, and files. Use isolated resources to avoid interference.",
+  "launcherExternalConnectionTitle": "Existing worker connection",
+  "launcherExternalManagerPortLabel": "Manager port",
+  "launcherExternalWorkerEndpointLabel": "Worker VM endpoint",
+  "launcherExternalConnectionHelp": "The worker must already be configured to connect to this manager port.",
+  "launcherInvalidManagerPort": "Manager port {port} is invalid.",
+  "@launcherInvalidManagerPort": {
+    "description": "Shown when an external manager port is outside the valid range.",
+    "placeholders": {
+      "port": {"type": "int"}
+    }
+  },
+  "launcherInvalidWorkerEndpoint": "The worker VM endpoint is invalid: {details}",
+  "@launcherInvalidWorkerEndpoint": {
+    "description": "Shown when an external worker endpoint is missing, malformed, or disallowed.",
+    "placeholders": {
+      "details": {"type": "String"}
+    }
+  },
+  "launcherConnectionFailure": "Could not connect to the worker: {details}",
+  "@launcherConnectionFailure": {
+    "description": "Shown when the manager cannot establish a ready worker connection.",
+    "placeholders": {
+      "details": {"type": "String"}
+    }
+  },
+  "launcherProcessStartFailure": "Could not start Flutter: {details}",
+  "@launcherProcessStartFailure": {
+    "description": "Shown when the Flutter process cannot be spawned.",
+    "placeholders": {
+      "details": {"type": "String"}
+    }
+  },
+  "launcherBuildFailure": "Flutter could not build the worker: {details}",
+  "@launcherBuildFailure": {
+    "description": "Shown when Flutter reports a build failure.",
+    "placeholders": {
+      "details": {"type": "String"}
+    }
+  },
+  "launcherProcessExited": "The worker exited with code {exitCode}.",
+  "@launcherProcessExited": {
+    "description": "Shown when the owned worker process exits unexpectedly.",
+    "placeholders": {
+      "exitCode": {"type": "int"}
+    }
+  },
+  "launcherProcessFailure": "The worker failed: {details}",
+  "@launcherProcessFailure": {
+    "description": "Shown for worker failures that do not have a more specific message.",
+    "placeholders": {
+      "details": {"type": "String"}
+    }
+  },
+  "launcherCleanupFailure": "The worker could not be stopped safely: {details}",
+  "@launcherCleanupFailure": {
+    "description": "Shown when shutdown leaves an owned process or resource behind.",
+    "placeholders": {
+      "details": {"type": "String"}
+    }
+  },
+  "launcherOwnedProcessRemaining": "Owned process {pid} is still running: {details}",
+  "@launcherOwnedProcessRemaining": {
+    "description": "Shown when cleanup fails and identifies the process that remains.",
+    "placeholders": {
+      "pid": {"type": "int"},
+      "details": {"type": "String"}
+    }
+  },
+  "launcherSessionLabel": "Session",
+  "launcherSessionIdLabel": "Session ID",
+  "launcherManagerEndpointLabel": "Manager endpoint",
+  "launcherWorkerEndpointLabel": "Worker endpoint",
+  "launcherReportPathLabel": "Report directory",
+  "launcherSessionDiagnostics": "Session {sessionId}: manager port {port}, worker {workerEndpoint}, reports {path}",
+  "@launcherSessionDiagnostics": {
+    "description": "Compact diagnostics for the currently owned launcher session.",
+    "placeholders": {
+      "sessionId": {"type": "String"},
+      "port": {"type": "int"},
+      "workerEndpoint": {"type": "String"},
+      "path": {"type": "String"}
+    }
+  },
+  "launcherQuit": "Quit",
+  "launcherQuitWithWorkerTitle": "Stop worker and quit?",
+  "launcherQuitWithWorkerMessage": "The launcher owns a running worker. Stop it before quitting.",
+  "launcherStopAndQuit": "Stop and quit",
+  "launcherCancel": "Cancel"
+}

@@ -23,9 +23,17 @@ class ReportHandlerService {
     ReportCollection reportCollection, {
     required bool offlineFile,
     bool doClear = true,
+    bool Function()? isCurrent,
   }) async {
+    bool hasAuthority() => isCurrent?.call() ?? true;
     for (final item in reportCollection.items) {
-      await _handleItem(item, offlineFile: offlineFile, doClear: doClear);
+      if (!hasAuthority()) return;
+      await _handleItem(
+        item,
+        offlineFile: offlineFile,
+        doClear: doClear,
+        isCurrent: hasAuthority,
+      );
     }
   }
 
@@ -33,14 +41,23 @@ class ReportHandlerService {
     ReportItem item, {
     required bool offlineFile,
     required bool doClear,
+    required bool Function() isCurrent,
   }) {
     switch (item.whichSubType()) {
       case ReportItem_SubType.setUpAll:
         return _handleSetUpAll(item.setUpAll, offlineFile: offlineFile);
       case ReportItem_SubType.tearDownAll:
-        return _handleTearDownAll(item.tearDownAll, offlineFile: offlineFile);
+        return _handleTearDownAll(
+          item.tearDownAll,
+          offlineFile: offlineFile,
+          isCurrent: isCurrent,
+        );
       case ReportItem_SubType.suiteInfoProto:
-        return _handleSuiteInfoProto(item.suiteInfoProto, doClear: doClear);
+        return _handleSuiteInfoProto(
+          item.suiteInfoProto,
+          doClear: doClear,
+          isCurrent: isCurrent,
+        );
       case ReportItem_SubType.logEntry:
         return _handleLogEntry(item.logEntry);
       case ReportItem_SubType.runnerStateChange:
@@ -68,10 +85,12 @@ class ReportHandlerService {
   Future<void> _handleTearDownAll(
     TearDownAll request, {
     required bool offlineFile,
+    required bool Function() isCurrent,
   }) async {
     Log.d(_kTag, 'TearDownAll $request');
 
     if (!offlineFile) await GetIt.I.get<VideoRecorderStore>().stopRecord();
+    if (!isCurrent()) return;
 
     GetIt.I.get<WorkerSuperRunStore>().currSuperRunController.handleTearDownAll(
       request.resolvedExecutionFilter,
@@ -154,6 +173,7 @@ class ReportHandlerService {
   Future<void> _handleSuiteInfoProto(
     SuiteInfoProto request, {
     required bool doClear,
+    required bool Function() isCurrent,
   }) async {
     Log.d(_kTag, 'handleReportSuiteInfo called $request');
 
@@ -163,8 +183,11 @@ class ReportHandlerService {
     // in case data from previous super-run are logged into current run
     if (doClear) {
       Log.d(_kTag, 'handleReportSuiteInfo thus ReportSaverService.clear');
-      await GetIt.I.get<ManagerReportSaverService>().clear();
+      await GetIt.I.get<ManagerReportSaverService>().clear(
+        isCurrent: isCurrent,
+      );
     }
+    if (!isCurrent()) return;
 
     Log.d(_kTag, 'handleReportSuiteInfo set new suitInfo');
     _suiteInfoStore.suiteInfo = SuiteInfo.fromProto(request);

@@ -27,6 +27,8 @@ Future<void> setup({
   bool registerHighlightStoreBase = true,
   bool registerVideoPlayerStoreBase = true,
   bool registerVmServiceWrapper = true,
+  bool startManagerServer = true,
+  bool autoConnectVm = true,
   // widget tests cannot handle async io, so
   // you might want to disable config parsing
   bool parseConfigFile = true,
@@ -64,11 +66,13 @@ Future<void> setup({
   }
   if (registerVmServiceWrapper) {
     getIt.registerSingleton<VmServiceWrapperService>(
-      RealVmServiceWrapperService(),
+      RealVmServiceWrapperService(autoConnect: autoConnectVm),
     );
   }
 
-  GetIt.I.get<ConvenientTestManagerService>().serve();
+  if (startManagerServer) {
+    await GetIt.I.get<ConvenientTestManagerService>().serve();
+  }
 
   Log.i('setup', 'GlobalConfig: ${GlobalConfigStore.config}');
 }

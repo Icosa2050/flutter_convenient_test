@@ -295,6 +295,11 @@ For example, go to the most recent _CI_ run, download `manager_gui_macos` artifa
 
 #### Method 2: `flutter run` / `flutter build`
 
+For a local Apple Silicon installation with a project/test chooser and isolated
+GUI-owned workers, see the [macOS manager guide](doc/macos-manager.md). Its
+per-session ports allow an independent CLI run to keep using its default ports;
+use separate checkouts and application data for concurrent runs.
+
 The GUI and CLI managers are just flutter and dart projects as well, respectively.
 So they can be run and built in the same way one would with any other flutter or dart project:
 

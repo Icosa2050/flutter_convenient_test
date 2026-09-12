@@ -1,6 +1,11 @@
+import 'dart:async';
+
 import 'package:convenient_test_manager/components/home_page/command_info_panel.dart';
 import 'package:convenient_test_manager/components/home_page/header/header_panel.dart';
 import 'package:convenient_test_manager/components/home_page/secondary_panel.dart';
+import 'package:convenient_test_manager/launcher/launcher_controller.dart';
+import 'package:convenient_test_manager/launcher/launcher_panel.dart';
+import 'package:convenient_test_manager/launcher/launcher_session_bar.dart';
 import 'package:convenient_test_manager/services/misc_flutter_service.dart';
 import 'package:convenient_test_manager/stores/home_page_store.dart';
 import 'package:convenient_test_manager_dart/services/vm_service_wrapper_service.dart';
@@ -11,35 +16,81 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:get_it/get_it.dart';
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+  const HomePage({this.chooseReportPath, this.readReport, super.key});
+
+  final LauncherPathChooser? chooseReportPath;
+  final LauncherReportReader? readReport;
 
   static const kRouteName = '/home';
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: _Body());
+    return Scaffold(
+      body: _Body(chooseReportPath: chooseReportPath, readReport: readReport),
+    );
   }
 }
 
 class _Body extends StatelessWidget {
-  const _Body();
+  const _Body({this.chooseReportPath, this.readReport});
+
+  final LauncherPathChooser? chooseReportPath;
+  final LauncherReportReader? readReport;
 
   @override
   Widget build(BuildContext context) {
+    final launcherController = GetIt.I.isRegistered<LauncherController>()
+        ? GetIt.I.get<LauncherController>()
+        : null;
+    if (launcherController == null) {
+      return _buildObservedBody(context, null);
+    }
+    return ListenableBuilder(
+      listenable: launcherController,
+      builder: (context, _) => _buildObservedBody(context, launcherController),
+    );
+  }
+
+  Widget _buildObservedBody(
+    BuildContext context,
+    LauncherController? launcherController,
+  ) {
     return Observer(
       builder: (_) {
+        final vmServiceWrapperService = GetIt.I.get<VmServiceWrapperService>();
+        final homePageStore = GetIt.I.get<HomePageStore>();
+        final disconnected =
+            !homePageStore.displayLoadedReportMode &&
+            !vmServiceWrapperService.connected;
         return Stack(
           children: [
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const HomePageHeaderPanel(),
-                Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-                Expanded(child: _buildBody(context)),
+                if (!disconnected) ...[
+                  HomePageHeaderPanel(
+                    onReconnect: launcherController?.canReconnect == true
+                        ? () => unawaited(launcherController!.reconnect())
+                        : null,
+                    onLoadReport: launcherController?.canLoadReport == true
+                        ? () => unawaited(
+                            launcherController!.loadReport(
+                              choosePath:
+                                  chooseReportPath ?? pickLauncherReportPath,
+                              readReport: readReport ?? readLauncherReport,
+                            ),
+                          )
+                        : null,
+                  ),
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                ],
+                if (launcherController != null)
+                  LauncherSessionBar(controller: launcherController),
+                Expanded(child: _buildBody(context, launcherController)),
                 // temporarily disable because of #25
                 // const HomePageInputKeyHandler(),
               ],
@@ -51,7 +102,10 @@ class _Body extends StatelessWidget {
     );
   }
 
-  Widget _buildBody(BuildContext context) {
+  Widget _buildBody(
+    BuildContext context,
+    LauncherController? launcherController,
+  ) {
     final vmServiceWrapperService = GetIt.I.get<VmServiceWrapperService>();
     final suiteInfoStore = GetIt.I.get<SuiteInfoStore>();
     final workerSuperRunStore = GetIt.I.get<WorkerSuperRunStore>();
@@ -59,6 +113,13 @@ class _Body extends StatelessWidget {
 
     if (!homePageStore.displayLoadedReportMode &&
         !vmServiceWrapperService.connected) {
+      if (launcherController != null) {
+        return LauncherPanel(
+          controller: launcherController,
+          chooseReportPath: chooseReportPath,
+          readReport: readReport,
+        );
+      }
       return _buildFullscreenHint(
         context: context,
         onTap: vmServiceWrapperService.connect,

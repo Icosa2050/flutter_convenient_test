@@ -12,7 +12,11 @@ import 'package:get_it/get_it.dart';
 import 'package:protobuf/protobuf.dart';
 
 class MiscDartService {
+  MiscDartService({Future<List<int>> Function(String path)? readFileBytes})
+    : _readFileBytes = readFileBytes ?? ((path) => File(path).readAsBytes());
+
   static const _kTag = 'MiscDartService';
+  final Future<List<int>> Function(String path) _readFileBytes;
 
   void hotRestartAndRunTests({required String filterNameRegex}) {
     Log.d(_kTag, 'hotRestartAndRunTests filterNameRegex=$filterNameRegex');
@@ -54,12 +58,30 @@ class MiscDartService {
     bool sync = false,
     bool doClear = true,
   }) async {
+    await readReportFromFileWithAuthority(
+      path,
+      sync: sync,
+      doClear: doClear,
+      isCurrent: () => true,
+    );
+  }
+
+  Future<bool> readReportFromFileWithAuthority(
+    String path, {
+    bool sync = false,
+    bool doClear = true,
+    required bool Function() isCurrent,
+  }) async {
     Log.d(_kTag, 'readReportFromFile start path=$path');
 
-    clearAll();
+    bool hasAuthority() => isCurrent();
+    if (!hasAuthority()) return false;
+
     final file = sync
         ? File(path).readAsBytesSync()
-        : await File(path).readAsBytes();
+        : await _readFileBytes(path);
+    if (!hasAuthority()) return false;
+
     final reader = CodedBufferReader(
       file,
       sizeLimit: 1073741824,
@@ -67,14 +89,19 @@ class MiscDartService {
 
     final reportCollection = ReportCollection.create();
     reportCollection.mergeFromCodedBufferReader(reader);
+    if (!hasAuthority()) return false;
 
     Log.d(_kTag, 'readReportFromFile read reportCollection');
+    clearAll();
     await GetIt.I.get<ReportHandlerService>().handle(
       reportCollection,
       offlineFile: true,
       doClear: doClear,
+      isCurrent: hasAuthority,
     );
+    if (!hasAuthority()) return false;
 
     Log.d(_kTag, 'readReportFromFile end');
+    return true;
   }
 }
