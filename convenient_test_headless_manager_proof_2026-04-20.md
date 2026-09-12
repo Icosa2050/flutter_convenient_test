@@ -63,13 +63,17 @@ No repo-tracked source files were changed for the proof cycle itself.
 
 ## Controls Used
 
+These tests belonged to the external Nebrivo checkout
+`nebrivo-meter-action-electricity-consumption` used for this historical proof.
+Paths below are relative to that checkout, not this repository.
+
 ### Short Control
 
-- [hello_convenient_test.dart](/Users/bernhard/Development/nebrivo-meter-action-electricity-consumption/integration_test/hello_convenient_test.dart)
+- `integration_test/hello_convenient_test.dart`
 
 ### Long Control
 
-- [us_property_meter_flow_convenient_test.dart](/Users/bernhard/Development/nebrivo-meter-action-electricity-consumption/integration_test/us_property_meter_flow_convenient_test.dart)
+- `integration_test/us_property_meter_flow_convenient_test.dart`
 
 ## Instrumentation Added During Investigation
 
