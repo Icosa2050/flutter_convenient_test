@@ -303,7 +303,7 @@ final class FlutterWorkerProcess {
     required ProcessStartMode mode,
   }) async {
     if (_ownedProcessGroupStarter case final starter?) {
-      return starter(
+      return await starter(
         executable,
         arguments,
         workingDirectory: workingDirectory,
@@ -469,7 +469,7 @@ final class FlutterWorkerProcess {
       'processGroupId': run.ownership.groupId,
       'appId': run.appId,
       'appStopRequested': run.appStopRequested,
-      if (error != null) 'error': error,
+      'error': ?error,
     };
     _reportRunFailure(
       run,

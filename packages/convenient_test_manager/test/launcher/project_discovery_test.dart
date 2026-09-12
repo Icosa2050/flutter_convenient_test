@@ -34,7 +34,7 @@ void main() {
     final file = await writeFile(relativePath);
     final result = await Process.run('chmod', <String>['+x', file.path]);
     expect(result.exitCode, 0);
-    return file.resolveSymbolicLinks();
+    return await file.resolveSymbolicLinks();
   }
 
   group('ProjectDiscovery.entrypoints', () {
@@ -726,7 +726,6 @@ class _FakeProcess implements Process {
   final int _exitAfterKills;
   final Completer<int> _exitCode = Completer<int>();
   // The fake sink owns no resource; its close method is deliberately a no-op.
-  // ignore: close_sinks
   final IOSink _stdin;
   final StreamController<List<int>> _stdout = StreamController<List<int>>();
   final StreamController<List<int>> _stderr = StreamController<List<int>>();

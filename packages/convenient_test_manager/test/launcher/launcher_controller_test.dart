@@ -1417,7 +1417,8 @@ class _FakePreferences implements LauncherPreferences {
   String get filePath => '/preferences.json';
 
   @override
-  Future<LaunchConfiguration?> load() async => loadGate?.future ?? value;
+  Future<LaunchConfiguration?> load() async =>
+      await (loadGate?.future ?? value);
 
   @override
   Future<void> save(LaunchConfiguration configuration) async {

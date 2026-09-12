@@ -884,7 +884,7 @@ final class LauncherController extends ChangeNotifier {
           LauncherErrorCode.reportLoadFailure,
           arguments: <String, Object?>{
             'stage': path == null ? 'choosePath' : 'readReport',
-            if (path != null) 'path': path,
+            'path': ?path,
             'error': exception,
           },
         );
@@ -1214,7 +1214,7 @@ final class LauncherController extends ChangeNotifier {
           'pid': _activeDeviceDiscovery?.ownedPid,
           'resource': 'deviceDiscovery',
           'terminated': false,
-          if (cleanupError != null) 'error': cleanupError,
+          'error': ?cleanupError,
         },
       );
       return false;
@@ -1232,7 +1232,7 @@ final class LauncherController extends ChangeNotifier {
         LauncherErrorCode.cleanupFailure,
         arguments: <String, Object?>{
           'pid': _process.ownedPid,
-          if (cleanupError != null) 'error': cleanupError,
+          'error': ?cleanupError,
         },
       );
       return false;

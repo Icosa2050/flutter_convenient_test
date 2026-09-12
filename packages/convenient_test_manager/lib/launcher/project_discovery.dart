@@ -201,7 +201,7 @@ class ProjectDiscovery {
       }
       attempted.add(absoluteCandidate);
       if (await _isExecutableFile(absoluteCandidate)) {
-        return File(absoluteCandidate).resolveSymbolicLinks();
+        return await File(absoluteCandidate).resolveSymbolicLinks();
       }
     }
     throw FlutterSdkNotFoundException(List<String>.unmodifiable(attempted));
@@ -519,7 +519,7 @@ final class _ProcessDeviceDiscoveryQuery implements DeviceDiscoveryQuery {
       _releaseOwnership();
       return true;
     }
-    return _terminateOwnedProcess();
+    return await _terminateOwnedProcess();
   }
 
   Future<bool> _terminateOwnedProcess() {
