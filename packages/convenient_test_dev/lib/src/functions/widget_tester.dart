@@ -191,7 +191,7 @@ extension ExtWidgetTesterPump on WidgetTester {
         _kTag,
         'runAsyncEnhanced skip executing real runAsync since already has pending tasks',
       );
-      return callback();
+      return await callback();
     } else {
       final result = await runAsync(callback);
 
@@ -216,7 +216,6 @@ extension ExtTestWidgetsFlutterBinding on TestWidgetsFlutterBinding {
   // Use this to allow code be run on both patched and original Flutter framework code #337
   bool? get _safeRunningAsyncTasks {
     try {
-      // ignore: avoid_dynamic_calls
       return (this as dynamic).runningAsyncTasks as bool;
       // ignore: avoid_catching_errors
     } on NoSuchMethodError {
@@ -231,7 +230,6 @@ extension ExtTestWidgetsFlutterBinding on TestWidgetsFlutterBinding {
   @visibleForTesting
   dynamic safeTakeExceptionOrDetails() {
     try {
-      // ignore: avoid_dynamic_calls
       return (this as dynamic).takeExceptionDetails();
       // ignore: avoid_catching_errors
     } on NoSuchMethodError {

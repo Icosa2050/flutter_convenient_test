@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:convenient_test_common_dart/convenient_test_common_dart.dart';
 import 'package:convenient_test_manager_dart/misc/setup.dart';
+import 'package:convenient_test_manager_dart/services/headless_startup_service.dart';
 import 'package:convenient_test_manager_dart/services/misc_dart_service.dart';
 import 'package:convenient_test_manager_dart/services/status_periodic_logger.dart';
 import 'package:convenient_test_manager_dart/services/vm_service_wrapper_service.dart';
@@ -25,21 +26,15 @@ Future<void> main(List<String> args) async {
   Log.i(_kTag, 'step awaitWorkerAvailable');
   await _awaitWorkerAvailable();
 
-  unawaited(_monitorWorkerAvailable());
-
-  // to avoid #4575
-  Log.i(_kTag, 'step extra sleep to avoid too quickly hot-restart worker');
-  await Future<void>.delayed(const Duration(seconds: 6));
-
-  Log.i(_kTag, 'step reloadInfo');
-  GetIt.I.get<MiscDartService>().reloadInfo();
-  await _awaitSuiteInfoNonEmpty();
-
-  Log.i(_kTag, 'step hotRestartAndRunTests');
-  final regExp = GlobalConfigStore.config.runOnly != null
-      ? RegexUtils.matchPrefix(GlobalConfigStore.config.runOnly!)
-      : RegexUtils.kMatchEverything;
-  GetIt.I.get<MiscDartService>().hotRestartAndRunTests(filterNameRegex: regExp);
+  await performHeadlessStartup(
+    startMonitoringWorkerAvailability: () =>
+        unawaited(_monitorWorkerAvailable()),
+    waitBeforeFirstTestRun: () =>
+        Future<void>.delayed(const Duration(seconds: 6)),
+    awaitSuiteInfoNonEmpty: _awaitSuiteInfoNonEmpty,
+    hotRestartAndRunTests: GetIt.I.get<MiscDartService>().hotRestartAndRunTests,
+    runOnly: GlobalConfigStore.config.runOnly,
+  );
 
   StatusPeriodicLogger.run();
 

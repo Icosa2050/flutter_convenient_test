@@ -191,7 +191,7 @@ Future<MyComparisonResult> _compareListsAllowSizeDiffer(
       _kTag,
       'see result.error=${raw.error}, thus change image size and re-compare',
     );
-    return _compareListsGivenSizeDiffer(test, master, raw);
+    return await _compareListsGivenSizeDiffer(test, master, raw);
   }
 
   return raw;

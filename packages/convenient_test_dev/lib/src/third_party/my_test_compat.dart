@@ -1,4 +1,4 @@
-// ignore_for_file: implementation_imports, omit_local_variable_types, avoid_print, comment_references, parameter_assignments
+// ignore_for_file: implementation_imports, avoid_print, parameter_assignments
 
 import 'dart:async';
 

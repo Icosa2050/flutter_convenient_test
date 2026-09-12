@@ -32,9 +32,9 @@ Future<void> convenientTestEntrypointWhenEnvDevice(
       .getWorkerCurrentRunConfig();
   switch (currentRunConfig.whichSubType()) {
     case WorkerCurrentRunConfig_SubType.interactiveApp:
-      return _runModeInteractiveApp();
+      return await _runModeInteractiveApp();
     case WorkerCurrentRunConfig_SubType.integrationTest:
-      return _runModeIntegrationTest(
+      return await _runModeIntegrationTest(
         testBody,
         currentRunConfig.integrationTest,
       );

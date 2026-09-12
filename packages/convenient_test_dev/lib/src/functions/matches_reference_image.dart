@@ -44,7 +44,7 @@ class _MatchesEnhancedReferenceImage extends AsyncMatcher {
 
     final TestWidgetsFlutterBinding binding =
         TestWidgetsFlutterBinding.instance;
-    return binding.runAsync<String?>(() async {
+    return await binding.runAsync<String?>(() async {
       final ui.Image image = await imageFuture;
 
       if (referenceImage.height != image.height ||
