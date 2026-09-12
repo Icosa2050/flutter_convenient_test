@@ -72,5 +72,5 @@ Future<ui.Image> _captureImageFromElement(
   // assert(!renderObject.debugNeedsPaint);
 
   final layer = renderObject.debugLayer! as OffsetLayer;
-  return layer.toImage(renderObject.paintBounds);
+  return await layer.toImage(renderObject.paintBounds);
 }

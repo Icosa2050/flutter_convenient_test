@@ -125,7 +125,6 @@ class HomePageScreenshotPanel extends StatelessWidget {
                               imageInner.width.toDouble(),
                               imageInner.height.toDouble(),
                             ),
-                      // ignore: use_decorated_box
                       child: Container(
                         decoration: BoxDecoration(
                           border: Border.all(
@@ -198,7 +197,6 @@ class HomePageScreenshotPanel extends StatelessWidget {
                         Expanded(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 48),
-                            // ignore: use_decorated_box
                             child: Container(
                               decoration: BoxDecoration(
                                 border: Border.all(

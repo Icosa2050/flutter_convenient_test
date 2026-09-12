@@ -35,7 +35,6 @@ class ObservableCounter = _ObservableCounter with _$ObservableCounter;
 abstract class _ObservableCounter extends _BaseCounter with Store {
   @override
   @observable
-  // ignore: prefer_final_fields
   int _value = 0;
 
   // 故意override，是为了标注[@action]以生成相关代码

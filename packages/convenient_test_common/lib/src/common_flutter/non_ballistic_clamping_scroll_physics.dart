@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 // ignore: unnecessary_import
 import 'package:flutter/physics.dart';
 
-// ignore_for_file: omit_local_variable_types, curly_braces_in_flow_control_structures
+// ignore_for_file: curly_braces_in_flow_control_structures
 
 /// adapted from [ClampingScrollPhysics], hacky!
 class NonBallisticClampingScrollPhysics extends ScrollPhysics {

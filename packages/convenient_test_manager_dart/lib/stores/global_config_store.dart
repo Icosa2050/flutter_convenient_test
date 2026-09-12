@@ -78,7 +78,6 @@ sealed class GlobalConfigNullable with _$GlobalConfigNullable {
     return config.toConfig();
   }
 
-  // ignore: prefer_constructors_over_static_methods
   static Future<GlobalConfigNullable> parseConfigFile() async {
     try {
       final homeDirectory = Platform.environment['HOME'];

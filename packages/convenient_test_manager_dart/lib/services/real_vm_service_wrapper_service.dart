@@ -1,4 +1,4 @@
-// ignore_for_file: depend_on_referenced_packages, unnecessary_lambdas, use_setters_to_change_properties, prefer_final_in_for_each
+// ignore_for_file: unnecessary_lambdas, use_setters_to_change_properties, prefer_final_in_for_each
 
 import 'dart:async';
 
