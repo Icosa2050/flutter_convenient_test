@@ -199,6 +199,76 @@ void main() {
   });
 
   testWidgets(
+    'pending Dart-define save keeps focus, persists latest text, and blocks Start',
+    (tester) async {
+      final fixture = _Fixture();
+      await _selectValid(fixture.controller);
+      fixture.preferences
+        ..savedConfigurations.clear()
+        ..saveGate = Completer<void>();
+      await _pumpLauncher(tester, fixture.controller);
+      await tester.tap(find.text('SDK and Dart defines'));
+      await tester.pumpAndSettle();
+      final definesField = find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField &&
+            widget.decoration?.labelText == 'Dart defines',
+      );
+
+      await tester.tap(definesField);
+      await tester.enterText(definesField, 'PROFILE=');
+      await tester.pump();
+
+      expect(fixture.controller.selection.saving, isTrue);
+      expect(tester.widget<TextField>(definesField).enabled, isTrue);
+      expect(
+        tester.widget<TextField>(definesField).focusNode!.hasFocus,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, 'Start'))
+            .onPressed,
+        isNull,
+      );
+
+      await tester.enterText(definesField, 'PROFILE=gui test');
+      await tester.pump();
+
+      expect(
+        tester.widget<TextField>(definesField).controller!.text,
+        'PROFILE=gui test',
+      );
+      expect(
+        tester.widget<TextField>(definesField).focusNode!.hasFocus,
+        isTrue,
+      );
+      expect(fixture.controller.selection.dartDefines, {'PROFILE': 'gui test'});
+
+      fixture.preferences.saveGate!.complete();
+      await _pumpUntil(tester, () => !fixture.controller.selection.saving);
+      await tester.pump();
+
+      expect(
+        fixture.preferences.savedConfigurations.map(
+          (configuration) => configuration.dartDefines,
+        ),
+        [
+          {'PROFILE': ''},
+          {'PROFILE': 'gui test'},
+        ],
+      );
+      expect(fixture.preferences.value?.dartDefines, {'PROFILE': 'gui test'});
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, 'Start'))
+            .onPressed,
+        isNotNull,
+      );
+    },
+  );
+
+  testWidgets(
     'selected nested test and iOS simulator reach one managed launch',
     (tester) async {
       final fixture = _Fixture(
@@ -485,6 +555,12 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await _selectValid(fixture.controller);
     await _pumpLauncher(tester, fixture.controller);
+    await tester.tap(find.text('SDK and Dart defines'));
+    await tester.pumpAndSettle();
+    final definesField = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField && widget.decoration?.labelText == 'Dart defines',
+    );
 
     unawaited(fixture.controller.start());
     await tester.pump();
@@ -505,6 +581,7 @@ void main() {
           .onPressed,
       isNull,
     );
+    expect(tester.widget<TextField>(definesField).enabled, isFalse);
     expect(find.bySemanticsIdentifier('launcher.stop'), findsOne);
     expect(
       tester
@@ -660,6 +737,71 @@ void main() {
         isNull,
       );
       expect(getIt.get<HomePageStore>().displayLoadedReportMode, isFalse);
+    },
+  );
+
+  testWidgets('disconnected HomePage reconnects the current owned session', (
+    tester,
+  ) async {
+    final fixture = _Fixture();
+    await tester.binding.setSurfaceSize(const Size(1600, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _selectValid(fixture.controller);
+    final start = fixture.controller.start();
+    await _pumpUntil(tester, () => fixture.worker.startCalls == 1);
+    fixture.worker.emitReady();
+    await start;
+    final authenticatedSessionUri = fixture.controller.session!.workerUri!;
+    fixture.services.connectUris.clear();
+    getIt.registerSingleton<LauncherController>(fixture.controller);
+    await appVmService.disconnect();
+
+    await tester.pumpWidget(const MyApp());
+    await tester.pump();
+
+    expect(find.byType(LauncherPanel), findsOneWidget);
+    expect(find.bySemanticsIdentifier('launcher.reconnect'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'Stop'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsIdentifier('launcher.reconnect'));
+    await tester.pumpAndSettle();
+
+    expect(fixture.services.connectUris, [authenticatedSessionUri]);
+    expect(fixture.controller.session?.external, isFalse);
+    expect(fixture.controller.ownsWorker, isTrue);
+  });
+
+  testWidgets(
+    'disconnected HomePage reconnects an external session without Stop',
+    (tester) async {
+      final fixture = _Fixture();
+      await tester.binding.setSurfaceSize(const Size(1600, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final authenticatedSessionUri = Uri.parse(
+        'ws://127.0.0.1:9753/external-token/ws',
+      );
+      await fixture.controller.connectExternal(
+        managerPort: 3579,
+        workerUri: authenticatedSessionUri,
+      );
+      fixture.services.connectUris.clear();
+      getIt.registerSingleton<LauncherController>(fixture.controller);
+      await appVmService.disconnect();
+
+      await tester.pumpWidget(const MyApp());
+      await tester.pump();
+
+      expect(find.byType(LauncherPanel), findsOneWidget);
+      expect(find.bySemanticsIdentifier('launcher.reconnect'), findsOneWidget);
+      expect(find.text('Stop'), findsNothing);
+      expect(find.widgetWithText(OutlinedButton, 'Disconnect'), findsOneWidget);
+
+      await tester.tap(find.bySemanticsIdentifier('launcher.reconnect'));
+      await tester.pumpAndSettle();
+
+      expect(fixture.services.connectUris, [authenticatedSessionUri]);
+      expect(fixture.controller.session?.external, isTrue);
+      expect(fixture.controller.ownsWorker, isFalse);
     },
   );
 
@@ -900,6 +1042,10 @@ class _FakeDiscovery implements ProjectDiscovery {
 }
 
 class _FakePreferences implements LauncherPreferences {
+  LaunchConfiguration? value;
+  Completer<void>? saveGate;
+  final savedConfigurations = <LaunchConfiguration>[];
+
   @override
   LauncherPreferencesDiagnostic? diagnostic;
 
@@ -907,10 +1053,14 @@ class _FakePreferences implements LauncherPreferences {
   String get filePath => '/preferences.json';
 
   @override
-  Future<LaunchConfiguration?> load() async => null;
+  Future<LaunchConfiguration?> load() async => value;
 
   @override
-  Future<void> save(LaunchConfiguration configuration) async {}
+  Future<void> save(LaunchConfiguration configuration) async {
+    await saveGate?.future;
+    value = configuration;
+    savedConfigurations.add(configuration);
+  }
 }
 
 class _FakeWorkerProcess implements LauncherWorkerProcess {

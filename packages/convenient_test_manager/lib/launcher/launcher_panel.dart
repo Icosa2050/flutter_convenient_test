@@ -281,7 +281,7 @@ class _LauncherPanelState extends State<LauncherPanel> {
                     TextField(
                       controller: _definesController,
                       focusNode: _definesFocusNode,
-                      enabled: mutationsEnabled,
+                      enabled: widget.controller.canEditDartDefines,
                       minLines: 3,
                       maxLines: 7,
                       keyboardType: TextInputType.multiline,

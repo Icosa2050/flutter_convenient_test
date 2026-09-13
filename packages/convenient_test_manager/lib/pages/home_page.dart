@@ -62,12 +62,13 @@ class _Body extends StatelessWidget {
         final disconnected =
             !homePageStore.displayLoadedReportMode &&
             !vmServiceWrapperService.connected;
+        final canReconnect = launcherController?.canReconnect == true;
         return Stack(
           children: [
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (!disconnected) ...[
+                if (!disconnected || canReconnect) ...[
                   HomePageHeaderPanel(
                     onReconnect: launcherController?.canReconnect == true
                         ? () => unawaited(launcherController!.reconnect())

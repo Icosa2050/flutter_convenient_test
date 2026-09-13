@@ -319,6 +319,31 @@ final class LauncherController extends ChangeNotifier {
         LauncherState.stopping,
       }.contains(_state);
 
+  /// Whether the active Dart-define editor may accept another preference value.
+  ///
+  /// Preference writes are serialized separately, so saving alone does not
+  /// close the editor. Launch, restore, discovery, report, session, cleanup,
+  /// and shutdown authority still do.
+  bool get canEditDartDefines =>
+      !_admissionClosed &&
+      !_loadingReport &&
+      !_restoring &&
+      !_refreshingDevices &&
+      !_ownsDiscoveryProcess &&
+      !_process.owned &&
+      _session == null &&
+      _sessionServices.boundPort == null &&
+      _activeCompletion == null &&
+      _cleanupFuture == null &&
+      !_failureInProgress &&
+      !const <LauncherState>{
+        LauncherState.validating,
+        LauncherState.starting,
+        LauncherState.connecting,
+        LauncherState.running,
+        LauncherState.stopping,
+      }.contains(_state);
+
   /// Whether the current owned or explicit external session may reconnect.
   bool get canReconnect {
     final activeSession = _session;
