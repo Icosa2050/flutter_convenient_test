@@ -12,13 +12,49 @@ import 'package:synchronized/synchronized.dart';
 class ConvenientTestManagerService extends ConvenientTestManagerServiceBase {
   static const _kTag = 'ConvenientTestManagerService';
 
-  void serve() {
+  final _serverLock = Lock();
+  grpc.Server? _server;
+
+  int? get boundPort => _server?.port;
+
+  /// Starts one owned listener and returns its actual bound port.
+  ///
+  /// Calling this while the listener is active is idempotent and returns the
+  /// active port, regardless of the newly requested address or port.
+  Future<int> serve({
+    int port = kConvenientTestManagerPort,
+    String address = '0.0.0.0',
+  }) => _serverLock.synchronized(() async {
+    final activePort = _server?.port;
+    if (activePort != null) return activePort;
+
     final server = grpc.Server.create(
       services: [this],
       errorHandler: _responseErrorHandler,
     );
-    server.serve(address: '0.0.0.0', port: kConvenientTestManagerPort);
-  }
+    try {
+      await server.serve(address: address, port: port);
+    } catch (_) {
+      await server.shutdown();
+      rethrow;
+    }
+
+    final boundPort = server.port;
+    if (boundPort == null) {
+      await server.shutdown();
+      throw StateError('gRPC server completed startup without a bound port');
+    }
+    _server = server;
+    return boundPort;
+  });
+
+  Future<void> shutdown() => _serverLock.synchronized(() async {
+    final server = _server;
+    if (server == null) return;
+
+    await server.shutdown();
+    if (identical(_server, server)) _server = null;
+  });
 
   @override
   Future<Empty> report(ServiceCall call, ReportCollection request) async {

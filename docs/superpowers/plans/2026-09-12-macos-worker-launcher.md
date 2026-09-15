@@ -10,9 +10,36 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-12-macos-worker-launcher.md`
 
+## Execution status
+
+The user subsequently authorized implementation in separate Codex CLI runs.
+Selection, localization and UI use Sol Medium; process/session work uses Sol
+High; independent reviews use Astra Medium. Detailed run artifacts are local
+under `/tmp/convenient-launcher-cli-20260912/`.
+
+Implementation and native GUI/CLI coexistence are exercised. Native checks
+covered SDK recovery, build failure/cancellation, external attachment, occupied
+ports, report loading, Cmd-Q and last-window close. Independent reviews drove
+fixes for process containment, session/report authority, discovery deadlines,
+shutdown and cleanup retry. The subsequent requested testing pass passed131
+GUI tests (including a Convenient Test host journey) and13 shared-manager tests
+with clean analysis. The repeatable native runner passed macOS and iOS 26.5
+simulator workers, report saving, and Stop cleanup with distinct session IDs.
+
+The arm64 bundle is installed locally. Finder-launched Flutter discovery still
+hits an unresolved macOS file-access boundary; timeout and quit now cleanly
+release its owned query. No privacy permissions were changed. See the native
+acceptance notes for that remaining verification limit and one intermittent
+hot-restart observation. The detailed unchecked steps below are the original
+planning checklist, not a current completion ledger; this status and the
+acceptance notes supersede them. No commit or remote publication was performed.
+
 ## Global Constraints
 
 - macOS GUI; one owned worker with isolated ports; preserve CLI defaults 3579/9753.
+- v1 device list includes macOS and iOS simulators only. Filter SDK device metadata
+  before discarding targetPlatform/emulator fields; physical phones, Android and
+  web require separate networking support and must not be offered as working targets.
 - Allocate a unique session ID and report path for each GUI launch. No automatic
   reuse of a CLI listener or endpoint. Network isolation does not guarantee
   isolation of worker devices, app databases or files in the selected checkout.
@@ -51,8 +78,10 @@
   future; change this so bind failures are testable and GUI-visible.
 - Existing GUI test setup starts that real listener even with a fake VM wrapper.
   Provide a no-server setup path before running widget tests beside other work.
-- Release entitlements contain no App Sandbox setting; no entitlement change is
-  planned. Test Finder launch because terminal PATH assumptions are insufficient.
+- Release remains unsandboxed. Native testing showed file_picker requires the
+  user-selected read-only entitlement even in this configuration; add it while
+  preserving allow-jit. Test Finder launch because terminal PATH assumptions
+  are insufficient.
 - Existing GUI contains hard-coded English and no app localization delegate.
   Add English resources/delegate for this feature without translating old screens.
 - Use `flutter run --machine` with separate executable/argument vectors and
@@ -130,7 +159,6 @@ failure in `flutter_worker_process.dart`. Inject Process.start via a test seam.
   final arguments = <String>[
     'run', '--machine', '--debug', '-d', config.deviceId,
     config.entrypoint, '--host-vmservice-port', '0',
-    '--disable-service-auth-codes',
     '--dart-define', 'CONVENIENT_TEST_APP_CODE_DIR=${config.projectDirectory}',
     '--dart-define', 'CONVENIENT_TEST_MANAGER_HOST=127.0.0.1',
     '--dart-define', 'CONVENIENT_TEST_MANAGER_PORT=$managerPort',
@@ -141,11 +169,11 @@ failure in `flutter_worker_process.dart`. Inject Process.start via a test seam.
   ```
   Reject user overrides for reserved source-directory/host/port keys. Keep
   user-provided values literal, including spaces, dollar signs and quotes.
-- [ ] Prove port-zero behavior with the selected SDK. If unsupported, reserve
-  an ephemeral worker port, release immediately before spawn, and retry only
-  confirmed port-binding failures up to three times with fresh reservations.
-  Never connect to a process that won a port race. Propagate the owned process's
-  reported VM URI, including any path/token and DDS endpoint, as a typed event.
+- [ ] Prove port-zero behavior with the selected SDK. Flutter 3.47.4 was verified
+  during CLI consultation; fail clearly for an unsupported SDK instead of adding
+  a reserve/release port race. Preserve service authentication and propagate the
+  owned process's full wsUri, including path/token and DDS endpoint. Do not use
+  baseUri as the VM endpoint. Accept app.started/debugPort in either order.
 - [ ] Start with `workingDirectory: config.projectDirectory`,
   `runInShell: false`; track an increasing run ID and the actual Process handle.
   Limit retained logs to 2,000 lines and truncate individual oversized records.
@@ -265,10 +293,12 @@ server-start/shutdown callbacks and the existing VM wrapper.
 
 - [ ] Add the SDK flutter_localizations dependency and `flutter: generate: true`.
   Configure `arb-dir: lib/l10n`, `template-arb-file: launcher_en.arb`,
-  `output-dir: build/generated/launcher_l10n`,
+  `output-dir: lib/build/generated/launcher_l10n`,
   `output-localization-file: launcher_localizations.dart`,
   `output-class: LauncherLocalizations`. Generated outputs remain ignored; use
-  one consistent relative import from lib to this generated output directory.
+  `package:convenient_test_manager/build/generated/launcher_l10n/launcher_localizations.dart`.
+  Execution validated that root build output cannot be imported as a Dart package
+  library; lib/build retains package imports and is ignored by the existing rule.
 - [ ] Add resources for project/test/device/SDK selection, Start/Stop/Retry,
   connect-existing, logs, restoring/saving, empty test list, invalid SDK/project,
   reserved defines, port conflict, session diagnostics, shared-resource warning,
@@ -292,6 +322,10 @@ server-start/shutdown callbacks and the existing VM wrapper.
 
 - [ ] Complete the mandated read-only PAL/Codex/Claude consultation before editing
   screens. Record any concrete lifecycle or UX correction in this plan.
+  Completed Sol High CLI consultation is recorded in
+  `/tmp/convenient-launcher-cli-20260912/00-consult.result.md`. Its UI advice:
+  hide disconnected Run/Halt controls, keep owned Stop outside the body switch,
+  and use a single AppLifecycleListener for bounded shutdown on normal quit.
 - [ ] Write widget tests for chooser cancellation, missing test, state-dependent
   buttons, stale device refresh, errors, external ownership and narrow layouts.
   Inject chooser callbacks so tests do not open native dialogs.

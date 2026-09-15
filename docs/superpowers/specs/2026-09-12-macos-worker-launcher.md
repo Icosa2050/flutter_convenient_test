@@ -12,7 +12,9 @@ saved-report viewing supported.
 - macOS GUI, one managed worker at a time, with an independent session ID,
   manager listener, worker VM endpoint and report directory per launch. CLI
   defaults remain 3579/9753; GUI-managed runs use automatically allocated ports.
-  Device selection uses the selected Flutter SDK's device list.
+  Device selection uses the selected Flutter SDK's device list, limited in v1
+  to macOS and iOS simulators. Android emulators, physical phones and web targets
+  require different networking and are excluded from this loopback-only launcher.
 - Native project directory chooser; validate `pubspec.yaml` and list `.dart`
   files recursively beneath `integration_test`, showing relative paths. These
   are candidate entrypoints, not statically proven convenient-test suites.
@@ -49,8 +51,8 @@ Late results from a previous selection must not overwrite current state.
 An active CLI run on 3579/9753 must not block a GUI-managed launch. Bind the
 GUI manager listener on an OS-assigned loopback port and pass its actual port
 to the worker. Request an OS-assigned VM port and use the owned process's reported
-endpoint. If the selected SDK cannot allocate the VM port, use a bounded
-reserve/release/retry strategy and handle the binding race explicitly.
+endpoint, preserving its authentication path. If the selected SDK cannot allocate
+the VM port, fail clearly and ask for a supported SDK; no reserve/release race fallback.
 External connection is an explicit action, never a fallback after launch fails.
 It uses explicit manager-port/worker-endpoint fields with legacy defaults;
 refuse a manager port already owned by another process. This is not attachment

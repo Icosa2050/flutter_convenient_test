@@ -74,8 +74,11 @@ abstract class _LogStore with Store {
 
   void clear() {
     logEntryInTest.clear();
+    testIdOfLogEntry.clear();
     logSubEntryInEntry.clear();
+    logEntryIdOfLogSubEntry.clear();
     logSubEntryMap.clear();
+    logSubEntryIdOfTime.clear();
     snapshotInLog.clear();
   }
 }

@@ -23,9 +23,10 @@ class ManagerReportSaverService {
     ).writeAsBytesSync(request.writeToBuffer(), mode: FileMode.append);
   }
 
-  Future<void> clear() async {
+  Future<void> clear({bool Function()? isCurrent}) async {
     Log.d(_kTag, 'clear');
     final path = File(await _getReportPath());
+    if (isCurrent?.call() == false) return;
 
     if (path.existsSync()) path.deleteSync();
   }

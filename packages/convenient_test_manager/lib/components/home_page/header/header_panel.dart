@@ -1,18 +1,21 @@
 import 'package:convenient_test_common/convenient_test_common.dart';
+import 'package:convenient_test_manager/build/generated/launcher_l10n/launcher_localizations.dart';
 import 'package:convenient_test_manager/components/home_page/header/header_status_hint.dart';
 import 'package:convenient_test_manager/pages/golden_diff_page.dart';
 import 'package:convenient_test_manager/services/misc_flutter_service.dart';
 import 'package:convenient_test_manager/stores/highlight_store.dart';
 import 'package:convenient_test_manager/stores/home_page_store.dart';
 import 'package:convenient_test_manager_dart/services/report_saver_service.dart';
-import 'package:convenient_test_manager_dart/services/vm_service_wrapper_service.dart';
 import 'package:convenient_test_manager_dart/stores/worker_super_run_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:get_it/get_it.dart';
 
 class HomePageHeaderPanel extends StatelessWidget {
-  const HomePageHeaderPanel({super.key});
+  const HomePageHeaderPanel({this.onReconnect, this.onLoadReport, super.key});
+
+  final VoidCallback? onReconnect;
+  final VoidCallback? onLoadReport;
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +24,7 @@ class HomePageHeaderPanel extends StatelessWidget {
     final workerSuperRunStore = GetIt.I.get<WorkerSuperRunStore>();
     final reportSaverService = GetIt.I.get<ManagerReportSaverService>();
     final homePageStore = GetIt.I.get<HomePageStore>();
+    final localizations = LauncherLocalizations.of(context);
 
     return Observer(
       builder: (_) {
@@ -85,12 +89,14 @@ class HomePageHeaderPanel extends StatelessWidget {
                     text: 'Reload Info',
                   ),
                   _HeaderButton(
-                    onPressed: GetIt.I.get<VmServiceWrapperService>().connect,
-                    text: 'Reconnect VM',
+                    identifier: 'launcher.reconnect',
+                    onPressed: onReconnect,
+                    text: localizations.launcherReconnect,
                   ),
                   _HeaderButton(
-                    onPressed: miscFlutterService.pickFileAndReadReport,
-                    text: 'Load Report',
+                    identifier: 'launcher.load_report',
+                    onPressed: onLoadReport,
+                    text: localizations.launcherLoadReport,
                   ),
                   _HeaderButton(
                     onPressed: () =>
@@ -209,18 +215,32 @@ class _HeaderSwitch extends StatelessWidget {
 }
 
 class _HeaderButton extends StatelessWidget {
+  final String? identifier;
   final String text;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
-  const _HeaderButton({required this.text, required this.onPressed});
+  const _HeaderButton({
+    required this.text,
+    required this.onPressed,
+    this.identifier,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: TextButton(
-        onPressed: onPressed,
-        child: Text(text, style: Theme.of(context).textTheme.labelMedium),
+      child: Semantics(
+        identifier: identifier,
+        label: text,
+        button: true,
+        enabled: onPressed != null,
+        onTap: onPressed,
+        child: ExcludeSemantics(
+          child: TextButton(
+            onPressed: onPressed,
+            child: Text(text, style: Theme.of(context).textTheme.labelMedium),
+          ),
+        ),
       ),
     );
   }

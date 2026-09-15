@@ -35,87 +35,100 @@ mkdir -p "$HOME/Applications"
 Prerequisites: native Apple Silicon terminal, Flutter, Xcode command-line tools,
 Python 3, and CocoaPods while this project retains its Podfile. Current project
 settings target arm64; Flutter 3.47 migrated the minimum macOS version to 12.0.
+Launching a macOS worker also requires `/usr/bin/python3`, supplied here by
+Apple/Xcode tools. The launcher uses it to create an isolated process group
+before executing Flutter, so cancellation can clean up build descendants.
+If isolation cannot be established, launch fails with a visible error.
 Flutter may update configuration/dependency files during a build; inspect your
 diff before committing to your fork.
 
-## The manager does not select a project by its working directory
+## Launch a test worker from the GUI
 
-The GUI connects to a separately launched **debug test worker**. The worker is
-your Flutter application started through an entrypoint that calls
-`convenientTestMain`, not the ordinary `lib/main.dart` entrypoint.
+Open **Convenient Test Manager** from Spotlight or Finder. Its working directory
+does not select the application being tested. Choose the Flutter project folder
+in the launcher, then an entrypoint under `integration_test/` and a device.
+The entrypoint must call `convenientTestMain`; an ordinary `testWidgets` file or
+`lib/main.dart` does not provide a convenient-test worker.
 
-The default connections in `consts.dart` are:
+Use **Start** to build and launch the selected worker. Once the suite appears,
+select tests or use **Run All**. **Stop** terminates the Flutter process owned by
+this GUI session. Normal app quit also waits for that cleanup. The GUI remembers
+selections but does not automatically start a worker when reopened.
 
-| Connection | Default | Purpose |
-| --- | --- | --- |
-| GUI to worker | `ws://127.0.0.1:9753/ws` | VM service and test control |
-| Worker to manager | `127.0.0.1:3579` | Configuration and test reports |
+The first version supports local macOS workers and iOS simulators. Android,
+physical phones, and web devices are excluded from the chooser because their
+network routing needs additional configuration. Your project must support the
+selected platform. Flutter 3.47.4 was used for development and native checks.
 
-Run the **worker** from the exact application checkout you want to test. Replace
-the project path and journey filename below with your app and an existing
-convenient-test entrypoint; retain any app-specific seed/profile Dart defines.
+If Flutter is not found, choose the SDK's `bin/flutter` executable. Resolution
+checks an explicit choice, project FVM configuration, a valid saved choice, then
+PATH. A GUI opened from Finder may have a smaller PATH than your terminal.
+macOS also attributes child-process file access to the launching app. A Flutter
+command working in a terminal does not prove that the Finder-launched manager
+has the same file access. If discovery fails or times out only from Finder,
+inspect the manager's macOS privacy permissions and the diagnostic logs.
+Advanced settings accept one `KEY=VALUE` Dart define per line; preserve your
+application's seed/profile defines. The launcher supplies its own manager host,
+manager port and source-directory defines and rejects attempts to override them.
+
+Project paths and entrypoints are revalidated before launching. Paths with spaces
+are passed as process arguments. A build can take time; inspect the launch logs
+for compiler errors, dependency resolution, device issues or a wrong SDK.
+Cancelling a file chooser keeps the previous selection.
+
+## GUI and CLI isolation
+
+Each GUI-owned launch uses a new loopback manager port, a dynamically allocated
+worker VM port, the worker's authenticated WebSocket URI, and a separate session
+ID/report directory. It does not claim the CLI's default ports or attach to a
+running CLI worker at startup. No separate background daemon is needed.
+
+The headless CLI retains its existing defaults: manager port **3579** and worker
+VM port **9753**. Separate ports do not isolate build directories, databases,
+accounts or devices: use separate app checkouts and data/resources for concurrent
+runs. Two managers must not control the same worker.
+
+Session diagnostics show the GUI's endpoints and report location. **Load Report**
+is available while idle for offline inspection of saved GUI or CLI reports.
+Stop an owned worker or Disconnect an external worker before loading a report.
+
+## Connect an independently launched worker
+
+Use the explicit **Connect existing worker** controls only for a worker intended
+for this GUI. Enter its manager port and full WebSocket URI, including any
+authentication path. The GUI binds that manager port before connecting. It does
+not own or terminate this external worker. A port already occupied by another
+manager produces an error; leave that manager running and use another port.
+
+For a manually launched local worker, this example uses the conventional ports.
+Do not use these ports while a headless manager owns them:
 
 ```zsh
 cd /absolute/path/to/your/flutter-app
 flutter run -d macos integration_test/your_convenient_test.dart \
-  --debug \
-  --host-vmservice-port 9753 \
-  --disable-service-auth-codes \
+  --debug --host-vmservice-port 9753 --disable-service-auth-codes \
+  --dart-define CONVENIENT_TEST_MANAGER_HOST=127.0.0.1 \
+  --dart-define CONVENIENT_TEST_MANAGER_PORT=3579 \
   --dart-define "CONVENIENT_TEST_APP_CODE_DIR=$PWD"
 ```
 
-Choose another device with `-d <device-id>` if the application does not support
-macOS. The worker must run in debug mode for the VM service. The authentication
-flag matches this manager's fixed `/ws` URL; keep this debugging service local.
-The app-code directory define supplies the worker's source/golden-file context.
+Then enter manager port `3579` and worker URI `ws://127.0.0.1:9753/ws` in the GUI.
+If the worker started before the GUI listener and reports no tests, use
+**Reload Info** after attaching to request its suite information again.
+That manual compatibility example disables VM authentication for a predictable
+local URI; GUI-owned launches retain authentication automatically.
 
-Open the GUI from any directory, or from Spotlight:
+If connection readiness fails, check that the chosen entrypoint reports a
+convenient-test suite, that the worker is still running in debug mode, and that
+its manager port matches the GUI. Use Stop to clean up a failed owned launch
+before retrying. Do not reconnect to an unrelated worker just because it is
+listening on a familiar port.
+If Flutter hot restart stalls, use Stop and Start to create a fresh owned worker.
 
-```zsh
-open -a "Convenient Test Manager"
-```
+## Verification
 
-If it was opened before the worker became ready, click **Reconnect VM** (or
-**Tap here to reconnect**). Once the test list appears, select tests or use
-**Run All**. The GUI does not launch Flutter for you.
+Native results and remaining limitations are recorded in
+[launcher acceptance notes](../packages/convenient_test_manager/test/launcher/native_launch_acceptance.md).
 
-## When “VMService not connected” remains visible
-
-Check both ports:
-
-```zsh
-lsof -nP -iTCP:9753 -iTCP:3579 -sTCP:LISTEN
-```
-
-- No listener on 9753: the worker has not started, exited, or uses another port.
-- Worker uses a random port or authenticated URL: restart it with the flags above.
-- A headless `convenient_test_manager_dart` process owns 3579: let that run finish
-  before using the GUI on those ports. The GUI is itself a manager, not a viewer
-  attached to the headless manager. Two managers must not control the same run.
-- A worker on 9753 belongs to another checkout: do not connect to it accidentally.
-  Check its terminal and process command before starting the GUI.
-
-For Nebrivo, a managed test command can start its own headless manager. To use the
-GUI interactively, launch just the selected convenient-test worker, preserving
-the journey's required seed/profile arguments. Do not start both managers for
-the same worker. You can inspect saved headless reports with **Load Report**
-after the active run finishes.
-
-Host/port constants use Dart compile-time environment values. Changing the
-shell directory, exporting a variable before `open`, or passing `open --args`
-does not reconfigure ports in the installed release GUI. Custom ports require
-building the GUI with matching `--dart-define` values and starting a worker with
-the same manager port and matching `--host-vmservice-port`. This packaging script
-currently builds the standard default-port configuration.
-
-## Source references
-
-- `packages/convenient_test_common_dart/lib/src/consts.dart`: hosts and ports.
-- `packages/convenient_test_manager_dart/lib/services/real_vm_service_wrapper_service.dart`:
-  fixed WebSocket connection URL.
-- `packages/convenient_test_manager_dart/lib/services/convenient_test_manager_service.dart`:
-  manager's gRPC listener.
-- `packages/convenient_test_dev/lib/src/support/static_config.dart`: source directory.
-- `packages/convenient_test_manager/lib/main.dart` and `lib/misc/setup.dart`:
-  GUI startup does not parse command-line arguments.
-- Repository README, “Tutorial: Run examples” and “Getting started”: worker launch.
+For the repeatable Convenient Test UI journey and native macOS/iOS simulator
+smoke runner, see [launcher UX testing](../packages/convenient_test_manager/test/launcher/launcher_ux_testing.md).

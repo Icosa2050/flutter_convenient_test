@@ -24,18 +24,50 @@ class MiscFlutterService extends MiscDartService {
     bool readSync = false,
     bool clear = true,
   }) async {
+    await pickFileAndReadReportWithAuthority(
+      pathOverride: pathOverride,
+      readSync: readSync,
+      clear: clear,
+      isCurrent: () => true,
+    );
+  }
+
+  Future<bool> pickFileAndReadReportWithAuthority({
+    String? pathOverride,
+    bool readSync = false,
+    bool clear = true,
+    required bool Function() isCurrent,
+  }) async {
+    bool hasAuthority() => isCurrent();
+    if (!hasAuthority()) return false;
+
     String path;
     if (pathOverride == null) {
       final result = await FilePicker.platform.pickFiles(allowMultiple: false);
-      if (result == null) return;
+      if (!hasAuthority() || result == null) return false;
 
       path = result.paths.single!;
     } else {
       path = pathOverride;
     }
 
-    GetIt.I.get<HomePageStore>().displayLoadedReportMode = true;
-
-    await readReportFromFile(path, sync: readSync, doClear: clear);
+    final homePageStore = GetIt.I.get<HomePageStore>();
+    final previousMode = homePageStore.displayLoadedReportMode;
+    try {
+      final loaded = await readReportFromFileWithAuthority(
+        path,
+        sync: readSync,
+        doClear: clear,
+        isCurrent: hasAuthority,
+      );
+      if (!loaded || !hasAuthority()) return false;
+      homePageStore.displayLoadedReportMode = true;
+      return true;
+    } on Object {
+      if (hasAuthority()) {
+        homePageStore.displayLoadedReportMode = previousMode;
+      }
+      rethrow;
+    }
   }
 }
