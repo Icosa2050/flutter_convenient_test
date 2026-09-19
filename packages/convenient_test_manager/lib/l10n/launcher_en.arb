@@ -202,5 +202,11 @@
   "launcherQuitWithWorkerTitle": "Stop worker and quit?",
   "launcherQuitWithWorkerMessage": "The launcher owns a running worker. Stop it before quitting.",
   "launcherStopAndQuit": "Stop and quit",
-  "launcherCancel": "Cancel"
+  "launcherCancel": "Cancel",
+  "launcherSwitchTestFile": "Switch test file…",
+  "launcherSwitchTestTitle": "Switch test file",
+  "launcherSwitchTestHint": "Choose a test file. The worker will restart with your current launch settings.",
+  "launcherSwitchTestInterruptTitle": "Interrupt the current test run?",
+  "launcherSwitchTestInterrupt": "The current test run will stop. Existing reports will be kept, and the selected file will open in a new session.",
+  "launcherSwitchTestConfirm": "Stop and switch"
 }

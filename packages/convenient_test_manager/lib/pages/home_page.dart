@@ -90,7 +90,15 @@ class _Body extends StatelessWidget {
                   ),
                 ],
                 if (launcherController != null)
-                  LauncherSessionBar(controller: launcherController),
+                  LauncherSessionBar(
+                    controller: launcherController,
+                    isTestRunning: () =>
+                        GetIt.I
+                            .get<WorkerSuperRunStore>()
+                            .currSuperRunController
+                            .superRunStatus ==
+                        WorkerSuperRunStatus.runningTest,
+                  ),
                 Expanded(child: _buildBody(context, launcherController)),
                 // temporarily disable because of #25
                 // const HomePageInputKeyHandler(),
