@@ -22,6 +22,21 @@ output fixture contains macOS, iOS simulator, physical iOS, Android, web,
 unsupported, unknown, and incomplete targets. Only macOS and iOS simulators may
 reach the launcher, with a stable name-then-ID order.
 
+## Switching test files
+
+For an owned running worker, **Switch test file…** beside Stop opens the
+project's discovered entrypoints. Choosing another file retains the project,
+Flutter SDK, device, and Dart defines, then validates the target, stops the old
+worker, and creates a new report session. Active test runs require interruption
+confirmation. Cancelling leaves the current session intact; failed cleanup
+blocks the replacement and retains the existing retry action. External workers
+cannot be switched by this launcher.
+
+The Convenient Test journey covers picker cancellation, interruption cancellation,
+confirmed switching, retained device selection, and distinct report paths.
+Controller regressions additionally cover failed cleanup, invalid targets,
+duplicate requests, and Stop/shutdown invalidation.
+
 ## Convenient Test harness
 
 `integration_test/launcher_convenient_test.dart` is a runnable

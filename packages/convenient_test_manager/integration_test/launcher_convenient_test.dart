@@ -57,6 +57,37 @@ Future<void> runLauncherConvenientTest({
         expect(harness.worker.startedManagerPort, 46123);
         expect(harness.worker.startedSessionId, 'launcher-ux-session');
 
+        final oldReportPath = harness.controller.session!.reportPath;
+        await find.bySemanticsIdentifier('launcher.switchTestFile').tap();
+        await find.text('Cancel').tap();
+        expect(harness.controller.session!.reportPath, oldReportPath);
+
+        harness.testRunning = true;
+        await find.bySemanticsIdentifier('launcher.switchTestFile').tap();
+        await find.text('integration_test/a_test.dart').last.tap();
+        await find
+            .text('Interrupt the current test run?')
+            .should(findsOneWidget);
+        await find.text('Cancel').tap();
+        expect(harness.controller.session!.reportPath, oldReportPath);
+        expect(
+          harness.worker.startedConfiguration!.entrypoint,
+          'integration_test/nested/launcher_test.dart',
+        );
+        await find.bySemanticsIdentifier('launcher.switchTestFile').tap();
+        await find.text('integration_test/a_test.dart').last.tap();
+        await find.text('Stop and switch').tap();
+        await find
+            .bySemanticsIdentifier('launcher.switchTestFile')
+            .should(findsOneWidget);
+        expect(harness.controller.state, LauncherState.running);
+        expect(
+          harness.worker.startedConfiguration!.entrypoint,
+          'integration_test/a_test.dart',
+        );
+        expect(harness.worker.startedConfiguration!.deviceId, 'ios-simulator');
+        expect(harness.controller.session!.reportPath, isNot(oldReportPath));
+
         await find.bySemanticsIdentifier('launcher.stop').tap();
         await find
             .bySemanticsIdentifier('launcher.start')
@@ -96,10 +127,14 @@ final class _LauncherHarness {
       sessionServices: services,
       reportRootDirectory: '/fixtures/reports',
       readinessTimeout: const Duration(seconds: 2),
-      sessionIdFactory: () => 'launcher-ux-session',
+      sessionIdFactory: () => _sessionNumber++ == 0
+          ? 'launcher-ux-session'
+          : 'launcher-ux-session-$_sessionNumber',
     );
   }
 
+  bool testRunning = false;
+  int _sessionNumber = 0;
   final GlobalKey<NavigatorState> navigatorKey;
   final _HarnessWorkerProcess worker;
   final _HarnessSessionServices services;
@@ -116,7 +151,10 @@ final class _LauncherHarness {
           listenable: controller,
           builder: (context, _) => Column(
             children: <Widget>[
-              LauncherSessionBar(controller: controller),
+              LauncherSessionBar(
+                controller: controller,
+                isTestRunning: () => testRunning,
+              ),
               Expanded(
                 child: LauncherPanel(
                   controller: controller,

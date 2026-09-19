@@ -3,10 +3,17 @@ import 'dart:async';
 import 'package:convenient_test_manager/build/generated/launcher_l10n/launcher_localizations.dart';
 import 'package:convenient_test_manager/launcher/flutter_worker_process.dart';
 import 'package:convenient_test_manager/launcher/launcher_controller.dart';
+import 'package:convenient_test_manager/launcher/switch_test_file_button.dart';
 import 'package:flutter/material.dart';
 
 class LauncherSessionBar extends StatelessWidget {
-  const LauncherSessionBar({required this.controller, super.key});
+  const LauncherSessionBar({
+    required this.controller,
+    this.isTestRunning,
+    super.key,
+  });
+
+  final bool Function()? isTestRunning;
 
   final LauncherController controller;
 
@@ -48,7 +55,8 @@ class LauncherSessionBar extends StatelessWidget {
         children: [
           ListTile(
             dense: true,
-            leading: controller.isBusy
+            leading:
+                controller.isBusy && controller.state != LauncherState.running
                 ? const SizedBox.square(
                     dimension: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
@@ -89,20 +97,42 @@ class LauncherSessionBar extends StatelessWidget {
                       ),
                     ],
                   ),
-            trailing: Semantics(
-              identifier: 'launcher.stop',
-              label: action,
-              button: true,
-              enabled: actionEnabled,
-              onTap: actionEnabled ? () => unawaited(controller.stop()) : null,
-              child: ExcludeSemantics(
-                child: OutlinedButton(
-                  onPressed: actionEnabled ? controller.stop : null,
-                  child: Text(action),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (session?.external == false) ...[
+                  SwitchTestFileButton(
+                    controller: controller,
+                    isTestRunning: isTestRunning,
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Semantics(
+                  identifier: 'launcher.stop',
+                  label: action,
+                  button: true,
+                  enabled: actionEnabled,
+                  onTap: actionEnabled
+                      ? () => unawaited(controller.stop())
+                      : null,
+                  child: ExcludeSemantics(
+                    child: OutlinedButton(
+                      onPressed: actionEnabled ? controller.stop : null,
+                      child: Text(action),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
+          if (controller.error != null &&
+              controller.state == LauncherState.running)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                launcherDiagnosticText(localizations, controller.error!),
+              ),
+            ),
           if (controller.logs.isNotEmpty)
             LauncherLogsView(logs: controller.logs),
           Divider(

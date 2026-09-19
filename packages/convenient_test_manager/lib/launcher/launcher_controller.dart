@@ -300,6 +300,67 @@ final class LauncherController extends ChangeNotifier {
         LauncherState.connecting,
       }.contains(_state);
 
+  bool _switchPending = false;
+  int _switchGeneration = 0;
+
+  bool get canSwitchEntrypoint =>
+      canReconnect &&
+      _session?.external == false &&
+      _entrypoints.any((path) => path != _entrypoint);
+
+  /// Replaces an owned worker only after validation and successful cleanup.
+  Future<void> switchEntrypoint(
+    String target, {
+    Future<bool> Function()? confirmInterruption,
+  }) async {
+    if (!canSwitchEntrypoint ||
+        target == _entrypoint ||
+        !_entrypoints.contains(target)) {
+      return;
+    }
+    final originalSession = _session;
+    final generation = ++_switchGeneration;
+    _switchPending = true;
+    _error = null;
+    _notify();
+    bool current() => !_admissionClosed && generation == _switchGeneration;
+    try {
+      await _discovery.validateEntrypoint(_projectDirectory!, target);
+      if (!current() ||
+          !identical(originalSession, _session) ||
+          _state != LauncherState.running) {
+        return;
+      }
+      if (confirmInterruption != null && !await confirmInterruption()) return;
+      if (!current() ||
+          !identical(originalSession, _session) ||
+          _state != LauncherState.running) {
+        return;
+      }
+      await _stop();
+      if (!current() ||
+          _state != LauncherState.idle ||
+          _process.owned ||
+          _session != null ||
+          _sessionServices.boundPort != null) {
+        return;
+      }
+      _entrypoint = target;
+      await _saveIfComplete();
+      if (!current()) return;
+      // start acquires its operation synchronously before yielding.
+      _switchPending = false;
+      await start();
+    } on Object catch (exception) {
+      if (current()) {
+        _error = _selectionError(exception);
+      }
+    } finally {
+      if (generation == _switchGeneration) _switchPending = false;
+      _notify();
+    }
+  }
+
   /// Whether cleanup failed with session resources retained for retry.
   bool get canRetryCleanup =>
       _state == LauncherState.failed &&
@@ -307,6 +368,7 @@ final class LauncherController extends ChangeNotifier {
 
   /// Whether a selection, launch, connection, or cleanup transition is active.
   bool get isBusy =>
+      _switchPending ||
       _loadingReport ||
       _restoring ||
       _saving ||
@@ -925,7 +987,13 @@ final class LauncherController extends ChangeNotifier {
   ///
   /// For external sessions it only disconnects and releases the local listener.
   /// A cleanup failure retains diagnostics/resources so this can be retried.
-  Future<void> stop() async {
+  Future<void> stop() {
+    ++_switchGeneration;
+    _switchPending = false;
+    return _stop();
+  }
+
+  Future<void> _stop() async {
     _connectionEventsAllowed = false;
     if (_state == LauncherState.stopping) {
       await _cleanupFuture;
@@ -1315,7 +1383,8 @@ final class LauncherController extends ChangeNotifier {
   }
 
   bool _canChangeSelection() {
-    if (_admissionClosed ||
+    if (_switchPending ||
+        _admissionClosed ||
         _loadingReport ||
         _activeCompletion != null ||
         _ownsDiscoveryProcess ||

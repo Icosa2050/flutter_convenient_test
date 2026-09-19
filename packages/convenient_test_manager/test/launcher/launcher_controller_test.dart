@@ -9,6 +9,104 @@ import 'package:convenient_test_manager/launcher/project_discovery.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('switch test file', () {
+    Future<void> ready(_Fixture f, String id) async {
+      await _eventually(() => f.worker.sessionId == id && f.worker.owned);
+      final run = f.worker.currentRunId!;
+      f.worker.emitStarted(sessionId: id, runId: run);
+      f.worker.emitDebug(
+        sessionId: id,
+        runId: run,
+        uri: Uri.parse('ws://127.0.0.1:49000/token/ws'),
+      );
+    }
+
+    Future<_Fixture> running() async {
+      final f = _Fixture();
+      f.discovery.paths.add('integration_test/other_test.dart');
+      await _selectValid(f.controller);
+      final start = f.controller.start();
+      await ready(f, 'session-1');
+      await start;
+      addTearDown(f.controller.shutdown);
+      return f;
+    }
+
+    test('retains settings and starts distinct report session', () async {
+      final f = await running();
+      final old = f.worker.configuration!;
+      final switching = f.controller.switchEntrypoint(
+        'integration_test/other_test.dart',
+      );
+      await ready(f, 'session-2');
+      await switching;
+      expect(f.controller.state, LauncherState.running);
+      expect(
+        f.worker.configuration!.entrypoint,
+        'integration_test/other_test.dart',
+      );
+      expect(f.worker.configuration!.projectDirectory, old.projectDirectory);
+      expect(f.worker.configuration!.flutterExecutable, old.flutterExecutable);
+      expect(f.worker.configuration!.deviceId, old.deviceId);
+      expect(f.worker.configuration!.dartDefines, old.dartDefines);
+      expect(f.services.reportPaths, [
+        '/reports/session-1',
+        '/reports/session-2',
+      ]);
+      expect(f.worker.stopCalls, 1);
+    });
+    test(
+      'double switch is ignored and shutdown invalidates confirmation',
+      () async {
+        final f = await running();
+        final gate = Completer<bool>();
+        final switching = f.controller.switchEntrypoint(
+          'integration_test/other_test.dart',
+          confirmInterruption: () => gate.future,
+        );
+        await _eventually(() => f.controller.isBusy);
+        await f.controller.switchEntrypoint('integration_test/other_test.dart');
+        await f.controller.shutdown();
+        gate.complete(true);
+        await switching;
+        expect(f.worker.startCalls, 1);
+        expect(f.worker.owned, isFalse);
+      },
+    );
+
+    test('failed cleanup prevents replacement', () async {
+      final f = await running();
+      f.worker.stopError = StateError('cannot stop');
+      await f.controller.switchEntrypoint('integration_test/other_test.dart');
+      expect(f.worker.startCalls, 1);
+      expect(f.controller.canRetryCleanup, isTrue);
+      f.worker.stopError = null;
+    });
+    test('Stop during validation cancels switch', () async {
+      final f = await running();
+      final gate = Completer<String>();
+      f.discovery.validate = (_, _) => gate.future;
+      final switching = f.controller.switchEntrypoint(
+        'integration_test/other_test.dart',
+      );
+      await f.controller.stop();
+      gate.complete('integration_test/other_test.dart');
+      await switching;
+      expect(f.worker.startCalls, 1);
+      expect(f.controller.state, LauncherState.idle);
+    });
+    test('invalid target preserves current worker', () async {
+      final f = await running();
+      f.discovery.validate = (_, _) async =>
+          throw const ProjectDiscoveryException(
+            ProjectDiscoveryError.entrypointOutsideProject,
+          );
+      await f.controller.switchEntrypoint('integration_test/other_test.dart');
+      expect(f.worker.stopCalls, 0);
+      expect(f.controller.state, LauncherState.running);
+      expect(f.worker.owned, isTrue);
+    });
+  });
   group('LauncherController selections', () {
     test(
       'restores immutable selections without starting or connecting',
@@ -1366,6 +1464,7 @@ class _FakeDeviceDiscoveryQuery implements DeviceDiscoveryQuery {
 }
 
 class _FakeDiscovery implements ProjectDiscovery {
+  final paths = <String>['integration_test/example_test.dart'];
   Future<String> Function(String) canonicalProject = Future.value;
   Future<String> Function(String, String?, String?) resolveSdk =
       (_, explicit, saved) => Future.value(explicit ?? saved ?? '/sdk/flutter');
@@ -1383,9 +1482,7 @@ class _FakeDiscovery implements ProjectDiscovery {
       discoverDevices(flutterExecutable);
 
   @override
-  Future<List<String>> entrypoints(String projectDirectory) async => [
-    'integration_test/example_test.dart',
-  ];
+  Future<List<String>> entrypoints(String projectDirectory) async => paths;
 
   @override
   Future<String> resolveFlutterExecutable({
